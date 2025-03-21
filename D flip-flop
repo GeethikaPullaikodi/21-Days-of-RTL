@@ -1,0 +1,124 @@
+`timescale 1ns/1ps  // Ensure consistent timing interpretation
+
+module day2 (
+  input  logic clk,
+  input  logic reset_sync,  // Separate signal for sync reset
+  input  logic reset_async, // Separate signal for async reset
+  input  logic d_i,
+
+  output logic q_norst_o,
+  output logic q_syncrst_o,
+  output logic q_asyncrst_o
+);
+
+  // Non-resettable D Flip-Flop
+  always_ff @(posedge clk)
+    q_norst_o <= d_i;
+
+  // Synchronous Reset D Flip-Flop (only triggered at clock edge)
+  always_ff @(posedge clk) begin
+    if (reset_sync)
+      q_syncrst_o <= 1'b0;
+    else
+      q_syncrst_o <= d_i;
+  end
+
+  // Asynchronous Reset D Flip-Flop (reset happens immediately)
+  always_ff @(posedge clk or posedge reset_async) begin
+    if (reset_async)
+      q_asyncrst_o <= 1'b0;
+    else
+      q_asyncrst_o <= d_i;
+  end
+
+endmodule
+
+
+Testbench:
+
+`timescale 1ns/1ps  // Add timescale for consistency
+
+module day2_tb;
+
+  logic      clk;
+  logic      reset_sync;
+  logic      reset_async;
+  logic      d_i;
+  logic      q_norst_o;
+  logic      q_syncrst_o;
+  logic      q_asyncrst_o;
+
+  // Instantiate DUT with explicit port mapping
+  day2 uut (
+      .clk(clk),
+      .reset_sync(reset_sync),
+      .reset_async(reset_async),
+      .d_i(d_i),
+      .q_norst_o(q_norst_o),
+      .q_syncrst_o(q_syncrst_o),
+      .q_asyncrst_o(q_asyncrst_o)
+  );
+
+  // Clock generation (10ns period, 100MHz)
+  always begin
+    clk = 1'b1;
+    #5;
+    clk = 1'b0;
+    #5;
+  end
+
+  // Test stimulus
+  initial begin
+    $dumpfile("day2.vcd");
+    $dumpvars(0, day2_tb);
+
+    // Initialize inputs
+    reset_sync = 1'b1;
+    reset_async = 1'b0;
+    d_i = 1'b0;
+
+    // Release synchronous reset
+    @(posedge clk);
+    reset_sync = 1'b0;
+
+    // Apply data input
+    @(posedge clk);
+    d_i = 1'b1;
+
+    // Hold data for a few cycles
+    @(posedge clk);
+    @(posedge clk);
+
+    // Apply synchronous reset
+    @(negedge clk);
+    reset_sync = 1'b1;
+
+    @(posedge clk);
+    @(posedge clk);
+    reset_sync = 1'b0;
+
+    // Apply asynchronous reset (reset happens immediately)
+    @(posedge clk);
+    reset_async = 1'b1;
+    #2;  // Short delay to see effect
+    reset_async = 1'b0;
+
+    // End simulation
+    @(posedge clk);
+    @(posedge clk);
+    $finish;
+  end
+
+  // Functional checkers (automatic verification)
+  always @(posedge clk) begin
+    if (q_norst_o !== d_i)
+      $error("Mismatch in q_norst_o: Expected %b, Got %b", d_i, q_norst_o);
+
+    if (reset_sync && (q_syncrst_o !== 0))
+      $error("Mismatch in q_syncrst_o under synchronous reset");
+
+    if (reset_async && (q_asyncrst_o !== 0))
+      $error("Mismatch in q_asyncrst_o under asynchronous reset");
+  end
+
+endmodule
