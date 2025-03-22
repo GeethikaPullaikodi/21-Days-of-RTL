@@ -1,0 +1,84 @@
+Disclaimer: These are my SystemVerilog solutions, tested on EDA Playground. If you're running them on Quicksilicon, just ditch the dumpfile—it’s already taken care of for you! :)
+
+
+
+module edge_detector (
+  input  logic clk,
+  input  logic reset,
+  input  logic a_i,
+  output logic rising_edge_o,
+  output logic falling_edge_o
+);
+
+  logic a_ff; // Register to store the previous state of a_i
+
+  // Sequential logic: Capture the previous state of a_i on every clock cycle
+  always_ff @(posedge clk or posedge reset) begin
+    if (reset)
+      a_ff <= 1'b0;  // Reset the stored value
+    else
+      a_ff <= a_i;    // Store the current input value for next cycle comparison
+  end
+
+  // Combinational logic: Detect rising and falling edges
+  assign rising_edge_o  = ~a_ff & a_i;  // 0 to 1 transition
+  assign falling_edge_o = a_ff & ~a_i;  // 1 to 0 transition
+
+endmodule
+
+Testbench
+
+`timescale 1ns/1ps
+
+module edge_detector_tb;
+
+  logic clk;
+  logic reset;
+  logic a_i;
+  logic rising_edge_o;
+  logic falling_edge_o;
+
+  // Instantiate the DUT (Device Under Test)
+  edge_detector uut (
+    .clk(clk),
+    .reset(reset),
+    .a_i(a_i),
+    .rising_edge_o(rising_edge_o),
+    .falling_edge_o(falling_edge_o)
+  );
+
+  // Clock generation (10 ns period)
+  always begin
+    #5 clk = ~clk;
+  end
+
+  // Stimulus
+  initial begin
+    // Initialize signals
+    clk = 0;
+    reset = 1;
+    a_i = 0;
+    
+    // Apply reset
+    #10;
+    reset = 0;
+
+    // Test sequence: toggle a_i to observe rising and falling edges
+    #10 a_i = 1; // Rising edge
+    #20 a_i = 0; // Falling edge
+    #30 a_i = 1; // Rising edge
+    #10 a_i = 0; // Falling edge
+    #15 a_i = 1; // Rising edge
+
+    // End simulation
+    #20;
+    $finish;
+  end
+
+  // Dump waveforms for analysis
+  initial begin
+    $dumpfile("waveform.vcd");
+    $dumpvars(0, edge_detector_tb);
+  end
+
+endmodule
