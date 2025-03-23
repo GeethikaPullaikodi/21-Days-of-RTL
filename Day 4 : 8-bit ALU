@@ -44,8 +44,15 @@ module day4_tb();
   logic [2:0] op_i;
   logic [7:0] alu_o;
 
-  day4 uut (.*);
+  // Instantiate the ALU module
+  day4 uut (
+    .a_i(a_i),
+    .b_i(b_i),
+    .op_i(op_i),
+    .alu_o(alu_o)
+  );
 
+  // Task to check expected output
   task check_output(input logic [7:0] expected);
     begin
       #5; // Allow time for computation
@@ -56,12 +63,19 @@ module day4_tb();
     end
   endtask
 
+  // Generate waveform output
+  initial begin
+    $dumpfile("alu_tb.vcd");  // Create waveform file
+    $dumpvars(0, day4_tb);     // Dump all signals in testbench
+  end
+
   initial begin
     for (int j = 0; j < 3; j++) begin
       for (int i = 0; i < 8; i++) begin
-        a_i = $urandom_range(0, 8'hFF);
-        b_i = $urandom_range(0, 8'hFF);
-        op_i = i;
+        a_i = $urandom_range(0, 8'hFF);  // Random 8-bit input A
+        b_i = $urandom_range(0, 8'hFF);  // Random 8-bit input B
+        op_i = i; // Operation selection
+
         case (op_i)
           3'b000: check_output(a_i + b_i); // ADD
           3'b001: check_output(a_i - b_i); // SUB
@@ -75,6 +89,6 @@ module day4_tb();
       end
     end
     $display("Test completed.");
-    $stop;
+    $stop; // Stop simulation
   end
 endmodule
