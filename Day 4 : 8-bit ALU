@@ -1,0 +1,79 @@
+
+
+// RTL - 8-bit ALU
+module day4 (
+  input     logic [7:0]   a_i,
+  input     logic [7:0]   b_i,
+  input     logic [2:0]   op_i,
+  output    logic [7:0]   alu_o
+);
+
+  // Enum for ALU operations
+  localparam  OP_ADD = 3'b000;
+  localparam  OP_SUB = 3'b001;
+  localparam  OP_SLL = 3'b010;
+  localparam  OP_LSR = 3'b011;
+  localparam  OP_AND = 3'b100;
+  localparam  OP_OR  = 3'b101;
+  localparam  OP_XOR = 3'b110;
+  localparam  OP_EQL = 3'b111;
+
+  logic carry;
+
+  always_comb begin
+    case (op_i)
+      OP_ADD: {carry, alu_o} = {1'b0, a_i} + {1'b0, b_i};
+      OP_SUB: alu_o = a_i - b_i;
+      OP_SLL: alu_o = a_i << b_i[2:0];
+      OP_LSR: alu_o = a_i >> b_i[2:0];
+      OP_AND: alu_o = a_i & b_i;
+      OP_OR:  alu_o = a_i | b_i;
+      OP_XOR: alu_o = a_i ^ b_i;
+      OP_EQL: alu_o = {7'h0, (a_i == b_i)};
+      default: alu_o = 8'b00000000; // Default case
+    endcase
+  end
+
+endmodule
+
+// Testbench for 8-bit ALU
+module day4_tb();
+  logic [7:0] a_i;
+  logic [7:0] b_i;
+  logic [2:0] op_i;
+  logic [7:0] alu_o;
+
+  day4 uut (.*);
+
+  task check_output(input logic [7:0] expected);
+    begin
+      #5; // Allow time for computation
+      if (alu_o !== expected)
+        $display("ERROR: a=%h, b=%h, op=%b -> Expected: %h, Got: %h", a_i, b_i, op_i, expected, alu_o);
+      else
+        $display("PASS: a=%h, b=%h, op=%b -> Output: %h", a_i, b_i, op_i, alu_o);
+    end
+  endtask
+
+  initial begin
+    for (int j = 0; j < 3; j++) begin
+      for (int i = 0; i < 8; i++) begin
+        a_i = $urandom_range(0, 8'hFF);
+        b_i = $urandom_range(0, 8'hFF);
+        op_i = i;
+        case (op_i)
+          3'b000: check_output(a_i + b_i); // ADD
+          3'b001: check_output(a_i - b_i); // SUB
+          3'b010: check_output(a_i << b_i[2:0]); // SLL
+          3'b011: check_output(a_i >> b_i[2:0]); // LSR
+          3'b100: check_output(a_i & b_i); // AND
+          3'b101: check_output(a_i | b_i); // OR
+          3'b110: check_output(a_i ^ b_i); // XOR
+          3'b111: check_output({7'h0, (a_i == b_i)}); // EQL
+        endcase
+      end
+    end
+    $display("Test completed.");
+    $stop;
+  end
+endmodule
