@@ -1,3 +1,4 @@
+Disclaimer: These are my SystemVerilog solutions, tested on EDA Playground. If you're running them on Quicksilicon, just ditch the dumpfile—it’s already taken care of for you! :)
 
 
 // RTL - 8-bit ALU
