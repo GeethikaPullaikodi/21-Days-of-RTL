@@ -1,0 +1,51 @@
+module day5 (
+  input  wire       clk,        // Clock input
+  input  wire       reset,      // Reset input
+  output logic [7:0] cnt_o     // 8-bit counter output
+);
+
+  always_ff @(posedge clk or posedge reset) begin
+    if (reset)
+      cnt_o <= 8'h1;           // Reset counter to 1
+    else
+      cnt_o <= cnt_o + 8'h2;  // Increment by 2
+  end
+
+endmodule
+
+TestBench
+
+module day5_tb ();
+
+  logic clk;
+  logic reset;
+  logic [7:0] cnt_o;
+
+  day5 DUT (.*); // Instantiating the DUT (Device Under Test)
+
+  always begin
+    clk = 1'b0;
+    #5;
+    clk = 1'b1;
+    #5;
+  end
+
+  initial begin
+    reset = 1'b1;             // Assert reset
+    repeat (2) @(posedge clk); // Wait for 2 clock cycles
+    reset = 1'b0;             // Deassert reset
+
+    repeat (10) begin
+      @(posedge clk);
+      $display("Time: %0t | Count: %h", $time, cnt_o); // Display counter value
+    end
+
+    reset = 1'b1;             // Apply reset again
+    @(posedge clk);
+    reset = 1'b0;
+    repeat (5) @(posedge clk); // Wait for 5 more cycles
+
+    $finish;                   // End simulation
+  end
+
+endmodule
