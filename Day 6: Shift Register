@@ -1,0 +1,79 @@
+// Simple shift register
+module day6(
+    input  wire       clk,
+    input  wire       reset,
+    input  wire       x_i,
+  output logic [3:0] sr_o //SystemVerilog data type that is similar to reg in Verilog
+);
+  logic [3:0] sr_ff; // Internal shift register flip-flops (4 bits)
+  logic [3:0] nxt_sr; // Next state of the shift register (4 bits)
+
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset)
+            sr_ff <= 4'b0000;
+        else
+            sr_ff <= nxt_sr;
+    end
+
+    assign nxt_sr = {sr_ff[2:0], x_i};
+    assign sr_o = sr_ff;
+endmodule
+
+TestBench:
+
+module day6_tb ();
+
+  reg clk;
+    reg reset;
+    reg x_i;
+    wire [3:0] sr_o;
+    
+    day6 uut (
+        .clk(clk),
+        .reset(reset),
+        .x_i(x_i),
+        .sr_o(sr_o)
+    );
+    
+    // Clock generation
+    always #5 clk = ~clk;
+    
+    initial begin
+        // Initialize signals
+        clk = 0;
+        reset = 1;
+        x_i = 0;
+        #10;
+        
+        // Release reset and apply inputs
+        reset = 0;
+        #10 x_i = 1;
+        #10 x_i = 0;
+        #10 x_i = 1;
+        #10 x_i = 1;
+        #10 x_i = 0;
+        #10 x_i = 1;
+        #10 x_i = 1;
+        #10;
+        
+        // Apply reset again
+        reset = 1;
+        #10 reset = 0;
+        
+        // More stimulus
+        #10 x_i = 0;
+        #10 x_i = 1;
+        #10 x_i = 1;
+        #10 x_i = 0;
+        #10;
+        
+        // End simulation
+        $finish;
+    end
+    
+    // Monitor output
+    initial begin
+        $monitor("Time = %0t | x_i = %b | sr_o = %b", $time, x_i, sr_o);
+    end
+
+endmodule
