@@ -1,0 +1,63 @@
+module day7 (
+  input  wire      clk,      // Clock signal
+  input  wire      reset,    // Reset signal
+  output wire [3:0] lfsr_o   // 4-bit LFSR output
+);
+
+  logic [3:0] lfsr_ff;   // Holds the current state of LFSR
+  logic feedback;        // Feedback bit
+
+  // Feedback calculation: XOR of bit1 and bit3
+  assign feedback = lfsr_ff[1] ^ lfsr_ff[3];
+
+  // Sequential logic: Update LFSR on clock edge
+  always_ff @(posedge clk or posedge reset) begin
+    if (reset)
+      lfsr_ff <= 4'b1110;   // Initial value when reset is pressed
+    else
+      lfsr_ff <= {lfsr_ff[2:0], feedback}; // Shift right with feedback
+  end
+
+  // Output assignment
+  assign lfsr_o = lfsr_ff;
+
+endmodule
+
+
+TestBench:
+
+module day7_tb;
+
+  logic clk;
+  logic reset;
+  logic [3:0] lfsr_o;
+
+  // Instantiate the LFSR module
+  day7 uut (
+    .clk(clk),
+    .reset(reset),
+    .lfsr_o(lfsr_o)
+  );
+
+  // Clock Generation (10-time units period)
+  always begin
+    clk = 1'b1; #5;
+    clk = 1'b0; #5;
+  end
+
+  // Test Sequence
+  initial begin
+    reset = 1'b1;  // Apply reset
+    #10;
+    reset = 1'b0;  // Release reset
+
+    // Run for 16 clock cycles
+    repeat (16) begin
+      @(posedge clk);
+      $display("LFSR Output: %b", lfsr_o);
+    end
+
+    $finish;
+  end
+
+endmodule
