@@ -1,0 +1,48 @@
+// Binary to one-hot
+
+module day8#(
+  parameter BIN_W       = 4,
+  parameter ONE_HOT_W   = 16
+)(
+  input   wire[BIN_W-1:0]     bin_i,
+  output  wire[ONE_HOT_W-1:0] one_hot_o
+);
+
+  assign one_hot_o = 1'b1<<bin_i;
+
+endmodule
+
+TestBench
+
+module day8_tb();
+
+  localparam BIN_W = 4; //localparam cannot be overridden at instantiation.
+  localparam ONE_HOT_W = 16;
+
+  logic [BIN_W-1:0] bin_i;
+  logic [ONE_HOT_W-1:0] one_hot_o;
+
+  // Instantiate the DUT (Device Under Test)
+  day8 #(BIN_W, ONE_HOT_W) DAY8 (.*);  
+
+  initial begin
+    $display("Binary Input | One-Hot Output");
+    
+    for(int i = 0; i < 16; i = i + 1) begin
+      bin_i = i; // Apply test case
+      #5; // Wait for output to settle
+      
+      // Display the results
+      $display(" %0d | %b", bin_i, one_hot_o);
+      
+      // Check correctness
+      if (one_hot_o !== (1'b1 << bin_i)) begin
+        $display("ERROR: bin_i=%0d, Expected=%b, Got=%b", bin_i, (1'b1 << bin_i), one_hot_o);
+      end
+    end
+    
+    $display("Test Completed.");
+    $finish;
+  end
+
+endmodule
