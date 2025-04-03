@@ -1,0 +1,59 @@
+`timescale 1ns / 1ps
+module day14 #(
+  parameter NUM_PORTS = 4  // Number of request ports
+)(
+    input  wire [NUM_PORTS-1:0] req_i,  // Request signals
+    output reg  [NUM_PORTS-1:0] gnt_o   // One-hot grant signal (Changed to reg)
+);
+
+  always @(*) begin
+    gnt_o = 4'b0000; // Default no grants
+
+    if (req_i[0]) gnt_o = 4'b0001;  // Highest priority
+    else if (req_i[1]) gnt_o = 4'b0010;
+    else if (req_i[2]) gnt_o = 4'b0100;
+    else if (req_i[3]) gnt_o = 4'b1000; // Lowest priority
+  end
+
+endmodule
+
+TestBench
+
+`timescale 1ns / 1ps
+
+module day14_tb;
+
+  localparam NUM_PORTS = 4;
+
+  logic [NUM_PORTS-1:0] req_i;
+  logic [NUM_PORTS-1:0] gnt_o;
+
+  // Instantiate the arbiter module
+  day14 #(NUM_PORTS) DUT (
+    .req_i(req_i),
+    .gnt_o(gnt_o)
+  );
+
+  initial begin
+    $display("Time | Requests | Grants ");
+    $monitor("%4t | %b | %b", $time, req_i, gnt_o);
+
+    // Test cases
+    req_i = 4'b0000;  #5;  // No request
+    req_i = 4'b0001;  #5;  // Only Port 0 requests
+    req_i = 4'b0100;  #5;  // Only Port 2 requests
+    req_i = 4'b0110;  #5;  // Ports 1 & 2 request (Port 1 should be granted)
+    req_i = 4'b1111;  #5;  // All ports request (Port 0 should be granted)
+    req_i = 4'b1010;  #5;  // Ports 3 & 1 request (Port 1 should be granted)
+    req_i = 4'b1001;  #5;  // Ports 3 & 0 request (Port 0 should be granted)
+
+    // Random test cases
+    for (int i = 0; i < 16; i = i + 1) begin
+      req_i = $urandom_range(0, 2**NUM_PORTS-1);
+      #5;
+    end
+
+    $finish;
+  end
+
+endmodule
