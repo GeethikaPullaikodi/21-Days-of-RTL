@@ -1,0 +1,104 @@
+// 4-bit Round Robin Arbiter
+module day15 (
+  input     wire        clk,
+  input     wire        reset,
+  input     wire[3:0]   req_i,
+  output    logic[3:0]  gnt_o
+);
+
+  logic [3:0] mask_q;
+  logic [3:0] nxt_mask;
+
+  // Update mask each cycle based on current grant
+  always_ff @(posedge clk or posedge reset)
+    if (reset)
+      mask_q <= 4'hF;       // Start with all bits set
+    else
+      mask_q <= nxt_mask;
+
+  // Determine the next mask
+  always_comb begin
+    nxt_mask = mask_q;
+         if (gnt_o[0]) nxt_mask = 4'b1110;
+    else if (gnt_o[1]) nxt_mask = 4'b1100;
+    else if (gnt_o[2]) nxt_mask = 4'b1000;
+    else if (gnt_o[3]) nxt_mask = 4'b0000;
+  end
+
+  // Apply current mask to requests
+  logic [3:0] mask_req;
+  assign mask_req = req_i & mask_q;
+
+  // Two sets of grants: masked and raw
+  logic [3:0] mask_gnt, raw_gnt;
+
+  // Priority encoders
+  day14 #(4) maskedGnt (.req_i(mask_req), .gnt_o(mask_gnt));
+  day14 #(4) rawGnt    (.req_i(req_i),    .gnt_o(raw_gnt));
+
+  // Final grant decision
+  assign gnt_o = |mask_req ? mask_gnt : raw_gnt;
+
+endmodule
+
+// Priority encoder (lowest index wins)
+module day14 #(
+  parameter NUM_PORTS = 4
+)(
+  input  wire [NUM_PORTS-1:0] req_i,
+  output wire [NUM_PORTS-1:0] gnt_o
+);
+  assign gnt_o[0] = req_i[0];
+
+  genvar i;
+  generate
+    for (i = 1; i < NUM_PORTS; i = i + 1) begin
+      assign gnt_o[i] = req_i[i] & ~(|req_i[i-1:0]);
+    end
+  endgenerate
+endmodule
+
+
+TestBench:
+
+module day15_tb ();
+
+  logic         clk;
+  logic         reset;
+  logic [3:0]   req_i;
+  logic [3:0]   gnt_o;
+
+  // Instantiate the DUT (Device Under Test)
+  day15 DUT (
+    .clk(clk),
+    .reset(reset),
+    .req_i(req_i),
+    .gnt_o(gnt_o)
+  );
+
+  // Clock generation
+  always begin
+    clk = 1'b1; #5;
+    clk = 1'b0; #5;
+  end
+
+  // Stimulus
+  initial begin
+    $display("Starting simulation...");
+    reset <= 1'b1;
+    req_i <= 4'b0000;
+    @(posedge clk);
+    reset <= 1'b0;
+    @(posedge clk);
+
+    // Apply different request patterns
+    repeat (20) begin
+      req_i <= $urandom_range(0, 4'hF);
+      @(posedge clk);
+      $display("Time: %0t | req_i = %b | gnt_o = %b", $time, req_i, gnt_o);
+    end
+
+    $finish;
+  end
+
+endmodule
