@@ -58,3 +58,185 @@ In simple terms:
 The day3 module is used to detect when a new request arrives, so the system knows when to start processing.
 The day7 module adds a random delay before the memory responds, making it behave like a real memory system that doesn’t immediately process requests.*/
 
+
+//used eda playground for simulation
+
+module day17 (
+  input       wire        clk,
+  input       wire        reset,
+
+  input       wire        req_i,        // Valid request input remains asserted until ready is seen
+  input       wire        req_rnw_i,    // Read-not-write (1-read, 0-write)
+  input       wire[3:0]   req_addr_i,   // 4-bit Memory address
+  input       wire[31:0]  req_wdata_i,  // 32-bit write data
+  output      wire        req_ready_o,   // Ready output when request accepted
+  output      wire[31:0]  req_rdata_o   // Read data from memory
+);
+
+  // Memory array (16x32-bit)
+  logic [15:0][31:0] mem;
+
+  // Random delay logic
+  logic [3:0] delay_count;
+  logic req_rising_edge;
+
+  // Registers for memory write and read operations
+  logic mem_rd;
+  logic mem_wr;
+
+  // Generate ready signal after random delay
+  assign mem_rd = req_i & req_rnw_i;   // Read condition
+  assign mem_wr = req_i & ~req_rnw_i;  // Write condition
+
+  // Instantiate day3 (edge detector)
+  day3 DAY3 (
+    .clk            (clk),
+    .reset          (reset),
+    .a_i            (req_i),
+    .rising_edge_o  (req_rising_edge)
+  );
+
+  // Random delay counter
+  always_ff @(posedge clk or posedge reset)
+    if (reset)
+      delay_count <= 4'h0;
+    else if (req_rising_edge)
+      delay_count <= $urandom_range(1, 10);  // Random delay value
+    else if (delay_count > 0)
+      delay_count <= delay_count - 1;
+
+  // Memory operation based on delay count
+  always_ff @(posedge clk)
+    if (mem_wr & (delay_count == 0))
+      mem[req_addr_i] <= req_wdata_i;
+
+  // Read directly
+  assign req_rdata_o = mem[req_addr_i] & {32{mem_rd}};
+
+  // Assert ready only when delay_count is 0 (ready after delay)
+  assign req_ready_o = (delay_count == 0);
+
+endmodule
+
+// Edge Detection Module for detecting rising and falling edges
+module day3 (
+  input     wire    clk,
+  input     wire    reset,
+  input     wire    a_i,  // Input signal to detect edges
+
+  output    wire    rising_edge_o,  // Rising edge output
+  output    wire    falling_edge_o  // Falling edge output
+);
+
+  logic a_ff;  // Delayed version of input signal
+
+  always_ff @(posedge clk or posedge reset)
+    if (reset)
+      a_ff <= 1'b0;
+    else
+      a_ff <= a_i;
+
+  // Rising edge when delayed signal is 0 but current is 1
+  assign rising_edge_o = ~a_ff & a_i;
+
+  // Falling edge when delayed signal is 1 but current is 0
+  assign falling_edge_o = a_ff & ~a_i;
+
+endmodule
+
+
+TestBench
+
+module day17_tb ();
+
+  logic        clk;
+  logic        reset;
+  logic        req_i;
+  logic        req_rnw_i;
+  logic[3:0]   req_addr_i;
+  logic[31:0]  req_wdata_i;
+  logic        req_ready_o;
+  logic[31:0]  req_rdata_o;
+
+  // Instantiate the RTL module
+  day17 DUT (
+    .clk           (clk),
+    .reset         (reset),
+    .req_i         (req_i),
+    .req_rnw_i     (req_rnw_i),
+    .req_addr_i    (req_addr_i),
+    .req_wdata_i   (req_wdata_i),
+    .req_ready_o   (req_ready_o),
+    .req_rdata_o   (req_rdata_o)
+  );
+
+  // Clock generation
+  always begin
+    clk = 1'b1;
+    #5;
+    clk = 1'b0;
+    #5;
+  end
+
+  // Generate stimulus
+  initial begin
+    // Create VCD file for waveform dump
+    $dumpfile("day17_tb.vcd");  // Specify the VCD file name
+    $dumpvars(0, day17_tb);     // Dump all variables in the testbench
+
+    reset = 1'b1;
+    req_i = 1'b0;
+    req_rnw_i = 1'b0;
+    req_addr_i = 4'b0000;
+    req_wdata_i = 32'h00000000;
+
+    // Reset phase
+    @(posedge clk);
+    reset = 1'b0;
+
+    // Test write transaction with random delay
+    @(posedge clk);
+    req_i = 1'b1;
+    req_rnw_i = 1'b0;  // Write operation
+    req_addr_i = 4'b0010;  // Address 2
+    req_wdata_i = 32'hA5A5A5A5;  // Data to write
+    while (~req_ready_o) begin
+      @(posedge clk);
+    end
+    req_i = 1'b0;
+    @(posedge clk);
+
+    // Test read transaction with random delay
+    @(posedge clk);
+    req_i = 1'b1;
+    req_rnw_i = 1'b1;  // Read operation
+    req_addr_i = 4'b0010;  // Address 2 (same address as written before)
+    while (~req_ready_o) begin
+      @(posedge clk);
+    end
+    req_i = 1'b0;
+    @(posedge clk);
+
+    // Check read data
+    assert(req_rdata_o == 32'hA5A5A5A5) else $fatal("Read data mismatch!");
+
+    // Test with random writes and reads
+    for (int i = 0; i < 10; i++) begin
+      @(posedge clk);
+      req_i = 1'b1;
+      req_rnw_i = $random % 2;  // Random read or write
+      req_addr_i = $random % 16;  // Random address (0-15)
+      req_wdata_i = $random;  // Random data to write if write operation
+      while (~req_ready_o) begin
+        @(posedge clk);
+      end
+      req_i = 1'b0;
+      @(posedge clk);
+    end
+
+    $finish;
+  end
+
+endmodule
+
+
